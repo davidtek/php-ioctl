@@ -1,10 +1,16 @@
 #include <php.h>
 #include <sys/ioctl.h>
 #include "ioctl.h"
+#include <stdlib.h>
+#include <errno.h>
 
 // PHP ioctl extension
 // by dj.thd <dj.thd@hotmail.com>
 // UNSAFE! PHP developer is responsible of passing correct arguments to function
+
+// Adapted for PHP 5.x by David Lublink
+// PHP 5 support ended on 31 December 2018
+// Very limited testing done
 
 zend_function_entry ioctl_functions[] = {
             PHP_FE(ioctl, NULL)
@@ -26,65 +32,69 @@ zend_module_entry ioctl_module_entry = {
 
 ZEND_GET_MODULE(ioctl);
 
-// From main/streams/plain_wrapper.c
 typedef struct {
-	FILE *file;
-	int fd;					/* underlying file descriptor */
-	unsigned is_process_pipe:1;	/* use pclose instead of fclose */
-	unsigned is_pipe:1;			/* don't try and seek */
-	unsigned cached_fstat:1;	/* sb is valid */
-	unsigned is_pipe_blocking:1; /* allow blocking read() on pipes, currently Windows only */
-	unsigned _reserved:28;
-
-	int lock_flag;			/* stores the lock state */
-	zend_string *temp_name;	/* if non-null, this is the path to a temporary file that
-							 * is to be deleted when the stream is closed */
-#if HAVE_FLUSHIO
-	char last_op;
-#endif
-
-#if HAVE_MMAP
-	char *last_mapped_addr;
-	size_t last_mapped_len;
-#endif
-#ifdef PHP_WIN32
-	char *last_mapped_addr;
-	HANDLE file_mapping;
-#endif
-
-	zend_stat_t sb;
-} php_stdio_stream_data;
-
+         FILE *file;
+         int fd;                       /* underlying file descriptor */
+         unsigned is_process_pipe:1;   /* use pclose instead of fclose */
+         unsigned is_pipe:1;           /* don't try and seek */
+         unsigned cached_fstat:1; /* sb is valid */
+         unsigned is_pipe_blocking:1; /* allow blocking read() on pipes, currently Windows only */
+         unsigned _reserved:28;
+      
+         int lock_flag;           /* stores the lock state */
+         char *temp_name;  /* if non-null, this is the path to a temporary file that
+                                   * is to be deleted when the stream is closed */
+     #if HAVE_FLUSHIO
+              char last_op;
+     #endif
+          
+          #if HAVE_MMAP
+              char *last_mapped_addr;
+         size_t last_mapped_len;
+     #endif
+          #ifdef PHP_WIN32
+              char *last_mapped_addr;
+         HANDLE file_mapping;
+     #endif
+          
+     } php_stdio_stream_data;
 
 PHP_FUNCTION(ioctl) {
 
 	zval *res;
-	zend_long request;
-	zend_string *data;
+	int request;
+	char *data;
 	zend_bool is_ptr;
+
+     int res_len;
+     int request_len;
+     int data_len;
+     int is_ptr_len;
+
 
 	php_stream *stream;
 
 	int fd;
 
-	ZEND_PARSE_PARAMETERS_START(4, 4);
-		Z_PARAM_RESOURCE(res);
-		Z_PARAM_LONG(request);
-		Z_PARAM_STR(data);
-		Z_PARAM_BOOL(is_ptr);
-	ZEND_PARSE_PARAMETERS_END_EX(return);
+     if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rlsb", &res, &request, &data, &data_len, &is_ptr )  == FAILURE) 
+     {
+          RETURN_NULL();
+     }
 
-	php_stream_from_zval(stream, res);
+	php_stream_from_zval(stream, &res);
 	php_stdio_stream_data *stream_data = (php_stdio_stream_data*)stream->abstract;
 	fd = stream_data->fd;
 
-	int result = ioctl(fd, (int)request, is_ptr ? ZSTR_VAL(data) : *(void**)(ZSTR_VAL(data)));
+	int result = ioctl(fd, (int)request, *data ) ;
+
 	if(result == -1)
 	{
+          printf( "Error no was %i", errno );
 		RETURN_FALSE;
 	}
 	else
 	{
 		RETURN_LONG(result);
 	}
+
 };

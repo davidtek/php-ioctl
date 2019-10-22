@@ -31,3 +31,7 @@ You will need to add `extension=ioctl.so` into your `php.ini` file.
 
 *  **FALSE**: the ioctl() call has failed.
 *  **any other value**: the integer result of the ioctl() call.
+
+
+### PHP 5 
+This fork modifies the extension to run on older PHP 5 ( which saw support end on 2018-12-31 ), you probably should not be using this
